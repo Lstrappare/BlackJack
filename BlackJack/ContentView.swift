@@ -15,6 +15,7 @@ struct ContentView: View {
     // Balance Edit State
     @State private var showBalanceAlert = false
     @State private var tempBalanceInput = ""
+    @State private var showTutorial = false
     
     // Drag & Drop State
     @State private var dropZoneFrame: CGRect = .zero
@@ -64,6 +65,19 @@ struct ContentView: View {
                     }
                     
                     Spacer()
+                    
+                    Button(action: {
+                        showTutorial = true
+                    }) {
+                        Image(systemName: "questionmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.white.opacity(0.7))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .sheet(isPresented: $showTutorial) {
+                        TutorialView()
+                    }
                 }
                 .padding()
                 
@@ -124,8 +138,8 @@ struct ContentView: View {
                         .onAppear {
                             dropZoneFrame = geo.frame(in: .global)
                         }
-                        .onChange(of: geo.frame(in: .global)) { newFrame in
-                            dropZoneFrame = newFrame
+                        .onChange(of: geo.frame(in: .global)) { oldValue, newValue in
+                            dropZoneFrame = newValue
                         }
                 }
             )
