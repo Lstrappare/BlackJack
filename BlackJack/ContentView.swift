@@ -13,8 +13,7 @@ struct ContentView: View {
     @StateObject var viewModel = GameViewModel()
     
     // Balance Edit State
-    @State private var showBalanceAlert = false
-    @State private var tempBalanceInput = ""
+    @State private var showBalanceSheet = false
     @State private var showTutorial = false
     
     // Drag & Drop State
@@ -48,20 +47,12 @@ struct ContentView: View {
                     .overlay(Capsule().stroke(Color.yellow.opacity(0.5), lineWidth: 1))
                     .shadow(radius: 5)
                     .onTapGesture {
-                        tempBalanceInput = String(viewModel.playerBalance)
-                        showBalanceAlert = true
+                        showBalanceSheet = true
                     }
-                    .alert("Modificar Saldo", isPresented: $showBalanceAlert) {
-                        TextField("Nuevo Saldo", text: $tempBalanceInput)
-                            .keyboardType(.numberPad)
-                        Button("Cancelar", role: .cancel) { }
-                        Button("Guardar") {
-                            if let newBalance = Int(tempBalanceInput) {
-                                viewModel.updateBalance(newBalance: newBalance)
-                            }
+                    .sheet(isPresented: $showBalanceSheet) {
+                        EditBalanceView(currentBalance: viewModel.playerBalance) { newBalance in
+                            viewModel.updateBalance(newBalance: newBalance)
                         }
-                    } message: {
-                        Text("Ingresa el nuevo saldo (Máx 100,000)")
                     }
                     
                     Spacer()
