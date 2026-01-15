@@ -35,6 +35,9 @@ class GameViewModel: ObservableObject {
     @Published var playerBalance: Int = 1000 // Saldo inicial
     @Published var currentBet: Int = 0
     
+    @Published var alertMissingAmount: Int?
+    @Published var showAlertMissingFunds: Bool = false
+    
     @Published var message = "Haz tu apuesta"
     
     var isGameOver: Bool {
@@ -71,6 +74,11 @@ class GameViewModel: ObservableObject {
                 playerBalance -= amount
                 currentBet += amount
             }
+        } else {
+            // Insufficient funds triggers alert
+            alertMissingAmount = amount
+            showAlertMissingFunds = true
+             HapticManager.shared.playError()
         }
     }
     
@@ -91,6 +99,19 @@ class GameViewModel: ObservableObject {
             }
         } else {
              message = "Saldo inválido (Max 100,000)"
+             HapticManager.shared.playError()
+        }
+    }
+    
+    /// Suma una cantidad al saldo
+    func addFunds(amount: Int) {
+        let potentialBalance = playerBalance + amount
+        if potentialBalance <= 100000 {
+            playerBalance += amount
+            // If they were trying to bet, we can optionally auto-bet here, but user asked to just add status.
+            // Let's just add it.
+        } else {
+             message = "El saldo no puede exceder 100,000"
              HapticManager.shared.playError()
         }
     }
@@ -130,6 +151,8 @@ class GameViewModel: ObservableObject {
             // If dealer fits rules, they might check.
             // Let's preserve turn for UX unless dealer also has 21.
              HapticManager.shared.playBlackjack()
+             // Auto Stand on BJ
+             endCurrentHand()
         }
     }
 
@@ -168,6 +191,9 @@ class GameViewModel: ObservableObject {
             // Bust
             HapticManager.shared.playLoss()
             endCurrentHand()
+        } else if hands[currentHandIndex].score == 21 {
+             // Auto Stand on 21
+             endCurrentHand()
         }
     }
     
@@ -241,6 +267,10 @@ class GameViewModel: ObservableObject {
                 hand2.isCompleted = true
             }
             
+            // Check for natural 21 (after split, not blackjack)
+            if hand1.score == 21 { hand1.isCompleted = true }
+            if hand2.score == 21 { hand2.isCompleted = true }
+            
             // Replace current hand with these two
             hands.remove(at: currentHandIndex)
             hands.insert(hand2, at: currentHandIndex)
@@ -248,6 +278,15 @@ class GameViewModel: ObservableObject {
             
             // Stay on current index (hand1)
             HapticManager.shared.playSelection()
+            
+            // If hand1 is 21 (completed), move on
+            if hands[currentHandIndex].isCompleted {
+                 endCurrentHand()
+                 // If we moved to hand2 and it is also completed (21), move on again
+                 if gameState == .playerTurn && currentHandIndex < hands.count && hands[currentHandIndex].isCompleted {
+                      endCurrentHand()
+                 }
+            }
             
         } else {
             message = "Saldo insuficiente para dividir"

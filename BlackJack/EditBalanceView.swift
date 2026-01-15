@@ -15,33 +15,52 @@ struct EditBalanceView: View {
                 .fontWeight(.bold)
                 .padding(.top, 20)
             
-            VStack(alignment: .leading, spacing: 8) {
-                Text("NUEVO SALDO")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.gray)
-                
+            VStack(alignment: .leading, spacing: 15) {
+                // Current Balance Display
                 HStack {
-                    TextField("0", text: $balanceInput)
-                        .keyboardType(.numberPad)
-                        .font(.system(size: 24, weight: .semibold, design: .rounded))
-                        .focused($isInputFocused)
-                        .onAppear {
-                            balanceInput = String(currentBalance)
-                            isInputFocused = true
-                        }
-                    
-                    if !balanceInput.isEmpty {
-                        Button(action: { balanceInput = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.gray)
-                                .font(.title3)
-                        }
-                    }
+                    Text("SALDO ACTUAL")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.gray)
+                    Spacer()
+                    Text("$\(currentBalance)")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
                 }
                 .padding()
-                .background(Color(.secondarySystemBackground))
+                .background(Color.white.opacity(0.1))
                 .cornerRadius(12)
+                
+                // Add Amount Input
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("CANTIDAD A SUMAR")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.gray)
+                    
+                    HStack {
+                        TextField("0", text: $balanceInput)
+                            .keyboardType(.numberPad)
+                            .font(.system(size: 24, weight: .semibold, design: .rounded))
+                            .focused($isInputFocused)
+                            .onAppear {
+                                balanceInput = ""
+                                isInputFocused = true
+                            }
+                        
+                        if !balanceInput.isEmpty {
+                            Button(action: { balanceInput = "" }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                                    .font(.title3)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(12)
+                }
             }
             .padding(.horizontal)
             
@@ -57,8 +76,8 @@ struct EditBalanceView: View {
                 }
                 
                 Button(action: {
-                    if let newBalance = Int(balanceInput) {
-                        onSave(newBalance)
+                    if let amountToAdd = Int(balanceInput), amountToAdd > 0 {
+                        onSave(currentBalance + amountToAdd)
                         dismiss()
                     }
                 }) {

@@ -54,6 +54,11 @@ struct ContentView: View {
                             viewModel.updateBalance(newBalance: newBalance)
                         }
                     }
+                    .onChange(of: viewModel.gameState) { oldState, newState in
+                        if newState == .betting && viewModel.playerBalance == 0 {
+                            showBalanceSheet = true
+                        }
+                    }
                     
                     Spacer()
                     
@@ -196,6 +201,21 @@ struct ContentView: View {
                     .cornerRadius(10)
                     .transition(.move(edge: .bottom))
                     .padding(.bottom, 20)
+            }
+        }
+        .alert("Fondos insuficientes", isPresented: $viewModel.showAlertMissingFunds) {
+            Button("Cancelar", role: .cancel) { }
+            if let amount = viewModel.alertMissingAmount {
+                Button("Añadir $\(amount)") {
+                    viewModel.addFunds(amount: amount)
+                    // Optionally try to bet again? For now just add funds.
+                }
+            }
+        } message: {
+            if let amount = viewModel.alertMissingAmount {
+                 Text("No tienes suficiente saldo. ¿Quieres añadir $\(amount)?")
+            } else {
+                 Text("No tienes suficiente saldo.")
             }
         }
     }
