@@ -91,7 +91,7 @@ class GameViewModel: ObservableObject {
             }
         } else {
              message = "Saldo inválido (Max 100,000)"
-             playHaptic(type: .error)
+             HapticManager.shared.playError()
         }
     }
 
@@ -129,7 +129,7 @@ class GameViewModel: ObservableObject {
             // Player has Blackjack!
             // If dealer fits rules, they might check.
             // Let's preserve turn for UX unless dealer also has 21.
-             playHaptic(type: .success)
+             HapticManager.shared.playBlackjack()
         }
     }
 
@@ -161,11 +161,12 @@ class GameViewModel: ObservableObject {
         let newCard = deck.drawCard()
         hands[currentHandIndex].cards.append(newCard)
         
-        playSelectionHaptic()
+        HapticManager.shared.playSelection()
         
         if hands[currentHandIndex].score > 21 {
             // Bust
-            playHaptic(type: .error)
+            // Bust
+            HapticManager.shared.playLoss()
             endCurrentHand()
         }
     }
@@ -191,13 +192,13 @@ class GameViewModel: ObservableObject {
             let newCard = deck.drawCard()
             hands[currentHandIndex].cards.append(newCard)
             
-            playSelectionHaptic()
+            HapticManager.shared.playSelection()
             
             // End hand immediately
             endCurrentHand()
         } else {
             message = "Saldo insuficiente para doblar"
-            playHaptic(type: .error)
+            HapticManager.shared.playError()
         }
     }
     
@@ -246,11 +247,11 @@ class GameViewModel: ObservableObject {
             hands.insert(hand1, at: currentHandIndex)
             
             // Stay on current index (hand1)
-            playSelectionHaptic()
+            HapticManager.shared.playSelection()
             
         } else {
             message = "Saldo insuficiente para dividir"
-            playHaptic(type: .error)
+            HapticManager.shared.playError()
         }
     }
     
@@ -318,6 +319,7 @@ class GameViewModel: ObservableObject {
                         let winAmount = Int(Double(hand.bet) * 1.5)
                         playerBalance += hand.bet + winAmount
                         totalWinnings += winAmount
+                        // We will play haptic at the end based on total
                     }
                 } else if dealerScore > 21 {
                     // Dealer Bust - Win 1:1
@@ -337,20 +339,17 @@ class GameViewModel: ObservableObject {
         
         if totalWinnings > 0 {
             message = "¡Ganaste \(totalWinnings)! 🎉"
-            playHaptic(type: .success)
+            // If any hand had BJ, we probably already played it, but let's play win sound if not purely BJ
+            // Simplification: Just play win if no BJ played recently? 
+            // Better: Play Win.
+            HapticManager.shared.playWin()
         } else {
+             // Check if all lost (no push, no win)
+             // If message says "Ronda terminada", implies no win.
             message = "Ronda terminada"
+            // Only play loss if player actually lost money?
+             HapticManager.shared.playLoss()
         }
-    }
-
-    func playHaptic(type: UINotificationFeedbackGenerator.FeedbackType) {
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(type)
-    }
-
-    func playSelectionHaptic() {
-        let generator = UISelectionFeedbackGenerator()
-        generator.selectionChanged()
     }
 }
 

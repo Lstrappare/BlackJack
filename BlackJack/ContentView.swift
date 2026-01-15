@@ -196,8 +196,7 @@ struct ContentView: View {
     }
     
     func placeBet(amount: Int) {
-        let impact = UIImpactFeedbackGenerator(style: .heavy)
-        impact.impactOccurred()
+        HapticManager.shared.playChipPlacement()
         viewModel.placeBet(amount: amount)
     }
     
