@@ -31,6 +31,16 @@ enum Rank: Int, CaseIterable {
             return self.rawValue
         }
     }
+    
+    // Símbolo del valor de la carta en vez de un número
+    var label: String {
+        switch self {
+        case .jack: return "J"
+        case .queen: return "Q"
+        case .king: return "K"
+        default: return String(self.rawValue)
+        }
+    }
 }
 
 // 3. LA CARTA (Struct)
@@ -41,6 +51,6 @@ struct Card: Identifiable {
     
     // Propiedad para mostrar el texto en pantalla
     var displayTitle: String {
-        return "\(rank.value) de \(suit.rawValue)"
+        return "\(rank.label) de \(suit.rawValue)"
     }
 }
