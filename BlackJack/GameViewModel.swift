@@ -8,6 +8,12 @@
 import SwiftUI
 import Combine
 
+enum GameState {
+    case playerTurn
+    case dealerTurn
+    case gameOver
+}
+
 /// ViewModel principal del juego de Blackjack.
 ///
 /// Se encarga de:
@@ -33,10 +39,13 @@ class GameViewModel: ObservableObject {
     /// Cartas actuales en la mano del dealer.
     @Published var dealerCards: [Card] = []
 
-    /// Indica si la partida ha terminado.
-    ///
-    /// Se utiliza para bloquear acciones y mostrar mensajes finales.
-    @Published var isGameOver = false
+    /// Estado actual del juego
+    @Published var gameState: GameState = .playerTurn
+    
+    /// Indica si la partida ha terminado (helper property)
+    var isGameOver: Bool {
+        gameState == .gameOver
+    }
 
     /// Mensaje informativo mostrado al finalizar la partida.
     @Published var message = ""
@@ -50,7 +59,7 @@ class GameViewModel: ObservableObject {
     /// - Limpia las manos
     /// - Reparte dos cartas al jugador y al dealer
     func startGame() {
-        isGameOver = false
+        gameState = .playerTurn
         message = ""
 
         deck.createDeck()
@@ -110,8 +119,8 @@ class GameViewModel: ObservableObject {
     /// - Detecta si el jugador se pasa de 21 (Bust)
     /// - Ejecuta retroalimentación háptica según el resultado
     func playerHit() {
-        // Evitar acciones si el juego ya terminó
-        guard !isGameOver else { return }
+        // Evitar acciones si no es el turno del jugador
+        guard gameState == .playerTurn else { return }
 
         // Sacar una carta del mazo
         let newCard = deck.drawCard()
@@ -122,11 +131,73 @@ class GameViewModel: ObservableObject {
 
         // Verificar si el jugador perdió
         if score > 21 {
-            isGameOver = true
-            message = "Haz Perdido."
+            // Player Bust = Dealer instant win regardless of dealer cards
+            gameState = .gameOver
+            message = "¡Te pasaste! 💥 Perdiste."
             playHaptic(type: .error)
         } else {
             playHaptic(type: .success)
+        }
+    }
+    
+    /// Acción del jugador para plantarse.
+    ///
+    /// - Termina el turno del jugador
+    /// - Inicia el turno del dealer
+    func playerStand() {
+        guard gameState == .playerTurn else { return }
+        gameState = .dealerTurn
+        
+        // Iniciar turno del dealer despues de una pequeña pausa para UX
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.playDealerTurn()
+        }
+    }
+    
+    // MARK: - Dealer Actions
+    
+    func playDealerTurn() {
+        var score = calculateScore(of: dealerCards)
+        
+        // Dealer AI: Hit until 17 or higher
+        // Using recursion with delay for visualization
+        
+        func dealerHitRecursive() {
+            score = calculateScore(of: dealerCards)
+            
+            if score < 17 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    let newCard = self.deck.drawCard()
+                    self.dealerCards.append(newCard)
+                    dealerHitRecursive()
+                }
+            } else {
+                // Dealer stops
+                determineWinner()
+            }
+        }
+        
+        dealerHitRecursive()
+    }
+    
+    func determineWinner() {
+        gameState = .gameOver
+        
+        let playerScore = calculateScore(of: playerCards)
+        let dealerScore = calculateScore(of: dealerCards)
+        
+        if dealerScore > 21 {
+            message = "Dealer se pasó. ¡Ganaste! 🎉"
+            playHaptic(type: .success)
+        } else if dealerScore > playerScore {
+            message = "Dealer gana con \(dealerScore). Perdiste."
+            playHaptic(type: .error)
+        } else if dealerScore < playerScore {
+            message = "¡Ganaste con \(playerScore)! 🎉"
+            playHaptic(type: .success)
+        } else {
+            message = "Empate a \(playerScore)."
+            playHaptic(type: .warning)
         }
     }
 

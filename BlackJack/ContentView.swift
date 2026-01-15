@@ -51,9 +51,14 @@ struct ContentView: View {
                         .tracking(2)
                     
                     HStack(spacing: -30) {
-                        ForEach(viewModel.dealerCards) { card in
-                            CardView(card: card)
-                                .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .opacity))
+                        ForEach(Array(viewModel.dealerCards.enumerated()), id: \.offset) { index, card in
+                            if index == 1 && viewModel.gameState == .playerTurn {
+                                CardBackView()
+                                    .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .scale.combined(with: .opacity)))
+                            } else {
+                                CardView(card: card)
+                                    .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .opacity))
+                            }
                         }
                     }
                     .frame(height: 120)
@@ -64,12 +69,22 @@ struct ContentView: View {
                 
                 // MARK: - Score Badge
                 
-                Text("\(viewModel.calculateScore(of: viewModel.playerCards))")
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                    .frame(width: 80, height: 80)
-                    .background(Circle().stroke(Color.white.opacity(0.3), lineWidth: 4))
-                    .shadow(radius: 10)
+                // Show score only based on visible cards or logic? 
+                // Usually we don't show dealer score if hidden, or show partial?
+                // Let's show player score here as main focus.
+                
+                VStack {
+                    Text("PUNTAJE")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.8))
+                    
+                    Text("\(viewModel.calculateScore(of: viewModel.playerCards))")
+                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(width: 80, height: 80)
+                        .background(Circle().stroke(Color.white.opacity(0.3), lineWidth: 4))
+                        .shadow(radius: 10)
+                }
                 
                 Spacer()
                 
@@ -77,12 +92,14 @@ struct ContentView: View {
                 if viewModel.isGameOver {
                     Text(viewModel.message)
                         .font(.headline)
+                        .multilineTextAlignment(.center)
                         .padding()
                         .background(Color.black.opacity(0.7))
                         .foregroundColor(.white)
                         .cornerRadius(20)
                         .transition(.scale)
                         .padding()
+                        .zIndex(1)
                 }
                 
                 // MARK: - Player Section
@@ -105,7 +122,7 @@ struct ContentView: View {
                 
                 // MARK: - Controls
                 
-                HStack(spacing: 40) {
+                HStack(spacing: 20) {
                     
                     // Hit Button
                     Button(action: {
@@ -116,21 +133,40 @@ struct ContentView: View {
                         Text("PEDIR")
                             .font(.headline)
                             .fontWeight(.bold)
+                            .frame(minWidth: 100)
                             .padding(.vertical, 12)
-                            .padding(.horizontal, 30)
                             .background(
                                 LinearGradient(gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.7)]), startPoint: .top, endPoint: .bottom)
                             )
                             .foregroundColor(.white)
                             .cornerRadius(25)
-                            .shadow(color: Color.blue.opacity(0.5), radius: 5, x: 0, y: 5)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 25)
-                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                            )
+                            .shadow(radius: 5)
+                            .overlay(RoundedRectangle(cornerRadius: 25).stroke(Color.white.opacity(0.3), lineWidth: 1))
                     }
-                    .disabled(viewModel.isGameOver)
-                    .opacity(viewModel.isGameOver ? 0.6 : 1.0)
+                    .disabled(viewModel.gameState != .playerTurn)
+                    .opacity(viewModel.gameState == .playerTurn ? 1.0 : 0.6)
+                    
+                    // Stand Button
+                    Button(action: {
+                        withAnimation {
+                            viewModel.playerStand()
+                        }
+                    }) {
+                        Text("PLANTARSE")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .frame(minWidth: 100)
+                            .padding(.vertical, 12)
+                            .background(
+                                LinearGradient(gradient: Gradient(colors: [Color.orange, Color.orange.opacity(0.7)]), startPoint: .top, endPoint: .bottom)
+                            )
+                            .foregroundColor(.white)
+                            .cornerRadius(25)
+                            .shadow(radius: 5)
+                            .overlay(RoundedRectangle(cornerRadius: 25).stroke(Color.white.opacity(0.3), lineWidth: 1))
+                    }
+                    .disabled(viewModel.gameState != .playerTurn)
+                    .opacity(viewModel.gameState == .playerTurn ? 1.0 : 0.6)
                     
                     // Restart Button
                     Button(action: {
@@ -138,21 +174,17 @@ struct ContentView: View {
                             viewModel.startGame()
                         }
                     }) {
-                        Text("REINICIAR")
+                        Image(systemName: "arrow.clockwise")
                             .font(.headline)
                             .fontWeight(.bold)
-                            .padding(.vertical, 12)
-                            .padding(.horizontal, 30)
+                            .padding(12)
                             .background(
                                 LinearGradient(gradient: Gradient(colors: [Color.red, Color.red.opacity(0.7)]), startPoint: .top, endPoint: .bottom)
                             )
                             .foregroundColor(.white)
-                            .cornerRadius(25)
-                            .shadow(color: Color.red.opacity(0.5), radius: 5, x: 0, y: 5)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 25)
-                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                            )
+                            .clipShape(Circle())
+                            .shadow(radius: 5)
+                            .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
                     }
                 }
                 .padding(.bottom, 40)
