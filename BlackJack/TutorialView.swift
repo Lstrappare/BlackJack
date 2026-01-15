@@ -1,3 +1,10 @@
+//
+//  TutorialView.swift
+//  BlackJack
+//
+//  Created by Jose Cisneros on 15/01/26.
+//
+
 import SwiftUI
 
 struct TutorialView: View {

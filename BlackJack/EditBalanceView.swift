@@ -1,3 +1,10 @@
+//
+//  EditBalanceView.swift
+//  BlackJack
+//
+//  Created by Jose Cisneros on 15/01/26.
+//
+
 import SwiftUI
 
 struct EditBalanceView: View {
