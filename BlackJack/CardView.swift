@@ -24,12 +24,12 @@ struct CardView: View {
     var body: some View {
         ZStack {
             // Fondo de la carta
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 8)
                 .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.3), radius: 4, x: 2, y: 2)
+                .shadow(color: Color.black.opacity(0.5), radius: 3, x: 1, y: 1)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.gray.opacity(0.4), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
                 )
             
             VStack {

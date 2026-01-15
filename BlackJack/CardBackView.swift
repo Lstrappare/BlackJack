@@ -10,27 +10,28 @@ import SwiftUI
 struct CardBackView: View {
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.blue)
-                .shadow(color: Color.black.opacity(0.3), radius: 4, x: 2, y: 2)
+            RoundedRectangle(cornerRadius: 8)
+                .fill(LinearGradient(gradient: Gradient(colors: [Color.red, Color(red: 0.6, green: 0, blue: 0)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+                .shadow(color: Color.black.opacity(0.5), radius: 3, x: 1, y: 1)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.white, lineWidth: 2)
-                        .padding(4)
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white, lineWidth: 4)
+                        .padding(2)
                 )
             
             // Pattern
-            VStack(spacing: 5) {
-                ForEach(0..<10) { _ in
-                    HStack(spacing: 5) {
-                        ForEach(0..<6) { _ in
+            VStack(spacing: 4) {
+                ForEach(0..<12) { _ in
+                    HStack(spacing: 4) {
+                        ForEach(0..<8) { _ in
                             Circle()
-                                .fill(Color.white.opacity(0.2))
-                                .frame(width: 5, height: 5)
+                                .fill(Color.white.opacity(0.15))
+                                .frame(width: 3, height: 3)
                         }
                     }
                 }
             }
+            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .frame(width: 80, height: 120)
     }
