@@ -9,98 +9,127 @@ import SwiftUI
 import Combine
 
 enum GameState {
+    case betting
     case playerTurn
     case dealerTurn
     case gameOver
 }
 
-/// ViewModel principal del juego de Blackjack.
-///
-/// Se encarga de:
-/// - Manejar la lógica del juego
-/// - Administrar el estado del mazo y las manos
-/// - Calcular puntajes
-/// - Notificar a la vista cuando el estado cambia
-///
-/// Sigue el patrón MVVM, separando completamente
-/// la lógica de negocio de la interfaz.
 class GameViewModel: ObservableObject {
 
     // MARK: - Published Properties
 
-    /// Mazo de cartas del juego.
-    ///
-    /// Se crea y baraja al iniciar una nueva partida.
     @Published var deck = Deck()
-
-    /// Cartas actuales en la mano del jugador.
-    @Published var playerCards: [Card] = []
-
-    /// Cartas actuales en la mano del dealer.
-    @Published var dealerCards: [Card] = []
-
-    /// Estado actual del juego
-    @Published var gameState: GameState = .playerTurn
     
-    /// Indica si la partida ha terminado (helper property)
+    // Ahora soportamos múltiples manos para el jugador (Split)
+    @Published var hands: [Hand] = []
+    
+    // Índice de la mano activa actualmente
+    @Published var currentHandIndex: Int = 0
+    
+    @Published var dealerCards: [Card] = []
+    
+    @Published var gameState: GameState = .betting
+    
+    // Betting properties
+    @Published var playerBalance: Int = 1000 // Saldo inicial
+    @Published var currentBet: Int = 0
+    
+    @Published var message = "Haz tu apuesta"
+    
     var isGameOver: Bool {
         gameState == .gameOver
     }
-
-    /// Mensaje informativo mostrado al finalizar la partida.
-    @Published var message = ""
-
-    // MARK: - Game Control
-
-    /// Inicia una nueva partida de Blackjack.
-    ///
-    /// - Reinicia el estado del juego
-    /// - Crea y baraja el mazo
-    /// - Limpia las manos
-    /// - Reparte dos cartas al jugador y al dealer
-    func startGame() {
-        gameState = .playerTurn
-        message = ""
-
-        deck.createDeck()
-        deck.shuffle()
-
-        playerCards = []
-        dealerCards = []
-
-        // Repartir 2 cartas a cada uno
-        playerCards.append(deck.drawCard())
-        dealerCards.append(deck.drawCard())
-        playerCards.append(deck.drawCard())
-        dealerCards.append(deck.drawCard())
+    
+    // Helper para acceder a la mano actual facilmente
+    var currentHand: Hand? {
+        guard hands.indices.contains(currentHandIndex) else { return nil }
+        return hands[currentHandIndex]
     }
 
-    // MARK: - Scoring
+    // MARK: - Game Control
+    
+    init() {
+        // Inicializamos vacío, esperando apuesta
+    }
 
-    /// Calcula el puntaje total de una mano según las reglas del Blackjack.
-    ///
-    /// Reglas aplicadas:
-    /// - Las cartas J, Q y K valen 10 puntos
-    /// - El As vale inicialmente 11 puntos
-    /// - Si el puntaje supera 21, el As puede ajustarse dinámicamente a 1
-    ///   para evitar que la mano se pase
-    ///
-    /// - Parameter hand: Arreglo de cartas que conforman la mano.
-    /// - Returns: Puntaje total calculado.
-    func calculateScore(of hand: [Card]) -> Int {
+    /// Inicia la fase de apuestas (resetea la mesa pero mantiene saldo)
+    func startBettingPhase() {
+        gameState = .betting
+        currentBet = 0
+        message = "Haz tu apuesta (Min 50 - Max 10000)"
+        hands = []
+        dealerCards = []
+    }
+    
+    /// Coloca una apuesta inicial
+    func placeBet(amount: Int) {
+        guard gameState == .betting else { return }
+        
+        if playerBalance >= amount {
+            if currentBet + amount <= 10000 {
+                playerBalance -= amount
+                currentBet += amount
+            }
+        }
+    }
+    
+    /// Limpia la apuesta actual
+    func clearBet() {
+        guard gameState == .betting else { return }
+        playerBalance += currentBet
+        currentBet = 0
+    }
+
+    /// Inicia la ronda repartiendo cartas
+    func deal() {
+        guard currentBet >= 50 else {
+            message = "Apuesta mínima de 50 requerida."
+            return
+        }
+        
+        deck.createDeck()
+        deck.shuffle()
+        
+        // Crear mano inicial del jugador
+        var initialHand = Hand(bet: currentBet)
+        initialHand.cards.append(deck.drawCard())
+        initialHand.cards.append(deck.drawCard())
+        
+        hands = [initialHand]
+        currentHandIndex = 0
+        
+        // Dealer
+        dealerCards = []
+        dealerCards.append(deck.drawCard())
+        dealerCards.append(deck.drawCard())
+        
+        gameState = .playerTurn
+        message = "Tu turno"
+        
+        // Check for instant Dealer Blackjack (Usually done if dealer shows Ace/10).
+        // For simplicity, we can check basic payouts at the end, but technically dealer BJ ends game immediately.
+        // Let's implement check after player turn or if player has BJ.
+        
+        if initialHand.isBlackjack {
+            // Player has Blackjack!
+            // If dealer fits rules, they might check.
+            // Let's preserve turn for UX unless dealer also has 21.
+             playHaptic(type: .success)
+        }
+    }
+
+    // MARK: - Scoring (Static Helper)
+
+    static func calculateScore(of cards: [Card]) -> Int {
         var score = 0
         var aceCount = 0
 
-        // Suma inicial de todas las cartas
-        for card in hand {
+        for card in cards {
             score += card.rank.value
-
-            if card.rank == .ace {
-                aceCount += 1
-            }
+            if card.rank == .ace { aceCount += 1 }
         }
 
-        // Ajuste dinámico del valor del As (11 → 1)
         while score > 21 && aceCount > 0 {
             score -= 10
             aceCount -= 1
@@ -111,59 +140,131 @@ class GameViewModel: ObservableObject {
 
     // MARK: - Player Actions
 
-    /// Acción del jugador para pedir una carta.
-    ///
-    /// - Verifica que la partida no haya terminado
-    /// - Saca una carta del mazo y la añade a la mano
-    /// - Recalcula el puntaje del jugador
-    /// - Detecta si el jugador se pasa de 21 (Bust)
-    /// - Ejecuta retroalimentación háptica según el resultado
     func playerHit() {
-        // Evitar acciones si no es el turno del jugador
-        guard gameState == .playerTurn else { return }
-
-        // Sacar una carta del mazo
+        guard gameState == .playerTurn,
+              hands.indices.contains(currentHandIndex) else { return }
+        
         let newCard = deck.drawCard()
-        playerCards.append(newCard)
-
-        // Recalcular puntaje
-        let score = calculateScore(of: playerCards)
-
-        // Verificar si el jugador perdió
-        if score > 21 {
-            // Player Bust = Dealer instant win regardless of dealer cards
-            gameState = .gameOver
-            message = "¡Te pasaste! 💥 Perdiste."
+        hands[currentHandIndex].cards.append(newCard)
+        
+        playSelectionHaptic()
+        
+        if hands[currentHandIndex].score > 21 {
+            // Bust
             playHaptic(type: .error)
-        } else {
-            playHaptic(type: .success)
+            endCurrentHand()
         }
     }
     
-    /// Acción del jugador para plantarse.
-    ///
-    /// - Termina el turno del jugador
-    /// - Inicia el turno del dealer
     func playerStand() {
         guard gameState == .playerTurn else { return }
-        gameState = .dealerTurn
+        endCurrentHand()
+    }
+    
+    func playerDouble() {
+        guard gameState == .playerTurn,
+              hands.indices.contains(currentHandIndex) else { return }
         
-        // Iniciar turno del dealer despues de una pequeña pausa para UX
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.playDealerTurn()
+        let hand = hands[currentHandIndex]
+        
+        // Check balance
+        if playerBalance >= hand.bet {
+            playerBalance -= hand.bet
+            hands[currentHandIndex].bet += hand.bet
+            hands[currentHandIndex].isDoubled = true
+            
+            // Draw 1 card only
+            let newCard = deck.drawCard()
+            hands[currentHandIndex].cards.append(newCard)
+            
+            playSelectionHaptic()
+            
+            // End hand immediately
+            endCurrentHand()
+        } else {
+            message = "Saldo insuficiente para doblar"
+            playHaptic(type: .error)
+        }
+    }
+    
+    func playerSplit() {
+        guard gameState == .playerTurn,
+              hands.indices.contains(currentHandIndex) else { return }
+        
+        let hand = hands[currentHandIndex]
+        
+        // Requirement: 2 cards required, same rank (usually value, but strict rules say Rank e.g. two 8s)
+        guard hand.cards.count == 2,
+              hand.cards[0].rank == hand.cards[1].rank else { return } // Basic check, could compare values too
+        
+        // Check balance
+        if playerBalance >= hand.bet {
+            playerBalance -= hand.bet // Deduct splitting bet
+            
+            // Create two new hands
+            let card1 = hand.cards[0]
+            let card2 = hand.cards[1]
+            
+            var hand1 = Hand(bet: hand.bet)
+            hand1.cards = [card1]
+            // Auto hit for split hand
+            hand1.cards.append(deck.drawCard())
+            
+            var hand2 = Hand(bet: hand.bet)
+            hand2.cards = [card2]
+            // Auto hit for split hand
+            hand2.cards.append(deck.drawCard())
+            
+            // Check for Split Aces rule: only 1 card allowed. 
+            // Simplifying: treat normally for now or just set isDoubled=true to prevent hits?
+            // "Al dividir ases solo tendrás derecho a 1 carta añadida" -> auto stand after deal?
+            if card1.rank == .ace {
+                hand1.isDoubled = true // Hack to prevent hits? Or just mark isCompleted.
+                hand1.isCompleted = true
+                
+                hand2.isDoubled = true
+                hand2.isCompleted = true
+            }
+            
+            // Replace current hand with these two
+            hands.remove(at: currentHandIndex)
+            hands.insert(hand2, at: currentHandIndex)
+            hands.insert(hand1, at: currentHandIndex)
+            
+            // Stay on current index (hand1)
+            playSelectionHaptic()
+            
+        } else {
+            message = "Saldo insuficiente para dividir"
+            playHaptic(type: .error)
+        }
+    }
+    
+    /// Avanza a la siguiente mano o al turno del dealer
+    private func endCurrentHand() {
+        hands[currentHandIndex].isCompleted = true
+        
+        // Move to next unfinished hand
+        if let nextIndex = hands.firstIndex(where: { !$0.isCompleted }) {
+            currentHandIndex = nextIndex
+        } else {
+            // All hands done
+            gameState = .dealerTurn
+            playDealerTurn()
         }
     }
     
     // MARK: - Dealer Actions
     
     func playDealerTurn() {
-        var score = calculateScore(of: dealerCards)
+        // If all player hands busted, dealer logic might be skipped in some casinos, 
+        // but to show dealer score we play it out unless implementation prefers instant loss.
+        // Let's play it out.
         
-        // Dealer AI: Hit until 17 or higher
-        // Using recursion with delay for visualization
+        var score = GameViewModel.calculateScore(of: dealerCards)
         
         func dealerHitRecursive() {
-            score = calculateScore(of: dealerCards)
+            score = GameViewModel.calculateScore(of: dealerCards)
             
             if score < 17 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -172,45 +273,70 @@ class GameViewModel: ObservableObject {
                     dealerHitRecursive()
                 }
             } else {
-                // Dealer stops
-                determineWinner()
+                determineWinners()
             }
         }
         
         dealerHitRecursive()
     }
     
-    func determineWinner() {
+    func determineWinners() {
         gameState = .gameOver
+        let dealerScore = GameViewModel.calculateScore(of: dealerCards)
         
-        let playerScore = calculateScore(of: playerCards)
-        let dealerScore = calculateScore(of: dealerCards)
+        var totalWinnings = 0
         
-        if dealerScore > 21 {
-            message = "Dealer se pasó. ¡Ganaste! 🎉"
-            playHaptic(type: .success)
-        } else if dealerScore > playerScore {
-            message = "Dealer gana con \(dealerScore). Perdiste."
-            playHaptic(type: .error)
-        } else if dealerScore < playerScore {
-            message = "¡Ganaste con \(playerScore)! 🎉"
+        for index in hands.indices {
+            let hand = hands[index]
+            let playerScore = hand.score
+            
+            if playerScore > 21 {
+                // Bust - Loss (Bet already taken)
+            } else {
+                if hand.isBlackjack {
+                    // Blackjack pays 3:2
+                    if dealerScore == 21 && dealerCards.count == 2 {
+                        // Push (Tie) against Dealer Blackjack
+                         playerBalance += hand.bet
+                    } else {
+                        // Win 3:2
+                        // Return bet + 1.5x bet
+                        let winAmount = Int(Double(hand.bet) * 1.5)
+                        playerBalance += hand.bet + winAmount
+                        totalWinnings += winAmount
+                    }
+                } else if dealerScore > 21 {
+                    // Dealer Bust - Win 1:1
+                    playerBalance += hand.bet * 2
+                    totalWinnings += hand.bet
+                } else if playerScore > dealerScore {
+                    // Win 1:1
+                    playerBalance += hand.bet * 2
+                    totalWinnings += hand.bet
+                } else if playerScore == dealerScore {
+                    // Push - Return Bet
+                    playerBalance += hand.bet
+                }
+                // else Loss
+            }
+        }
+        
+        if totalWinnings > 0 {
+            message = "¡Ganaste \(totalWinnings)! 🎉"
             playHaptic(type: .success)
         } else {
-            message = "Empate a \(playerScore)."
-            playHaptic(type: .warning)
+            message = "Ronda terminada"
         }
     }
 
-    // MARK: - Haptics
-
-    /// Ejecuta una vibración háptica en el dispositivo.
-    ///
-    /// Se utiliza para dar retroalimentación al usuario
-    /// ante acciones importantes del juego.
-    ///
-    /// - Parameter type: Tipo de vibración (`success`, `error`, `warning`)
     func playHaptic(type: UINotificationFeedbackGenerator.FeedbackType) {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(type)
     }
+
+    func playSelectionHaptic() {
+        let generator = UISelectionFeedbackGenerator()
+        generator.selectionChanged()
+    }
 }
+
