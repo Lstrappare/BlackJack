@@ -225,16 +225,29 @@ struct ContentView: View {
             }
             
             // Player Hands Area
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 20) {
-                    ForEach(Array(viewModel.hands.enumerated()), id: \.element.id) { index, hand in
-                        PlayerHandView(hand: hand, isActive: index == viewModel.currentHandIndex && viewModel.gameState == .playerTurn)
-                            .scaleEffect(index == viewModel.currentHandIndex && viewModel.gameState == .playerTurn ? 1.05 : 1.0)
-                            .animation(.spring(), value: viewModel.currentHandIndex)
-                    }
+            // Player Hands Area
+            let handCount = viewModel.hands.count
+            let isSplit = handCount > 1
+            
+            HStack(spacing: isSplit ? 0 : 20) {
+                ForEach(Array(viewModel.hands.enumerated()), id: \.element.id) { index, hand in
+                    PlayerHandView(hand: hand, isActive: index == viewModel.currentHandIndex && viewModel.gameState == .playerTurn)
+                        // Si hay split, hacemos las manos más chicas (0.85).
+                        // La mano activa crece un poco (1.05 relativo a su base) o se mantiene destacada.
+                        // Ajustamos la lógica para que se vea bien:
+                        // Base scale: 1.0 si es sola, 0.8 si son varias.
+                        // Active boost: +0.05
+                        .scaleEffect(
+                            (isSplit ? 0.85 : 1.0) *
+                            (index == viewModel.currentHandIndex && viewModel.gameState == .playerTurn ? 1.05 : 1.0)
+                        )
+                        .animation(.spring(), value: viewModel.currentHandIndex)
+                        .frame(maxWidth: isSplit ? .infinity : nil) // Distribute evenly if split
                 }
-                .padding()
             }
+            .frame(maxWidth: .infinity, alignment: .center) // Center the container
+            .padding(.horizontal)
+            .padding(.bottom, 20)
             
             Spacer()
             
