@@ -195,11 +195,32 @@ struct ContentView: View {
             // Error overlay within view
             if !viewModel.message.isEmpty && viewModel.gameState == .betting {
                 Text(viewModel.message)
-                    .foregroundColor(.red)
-                    .padding()
-                    .background(Color.black.opacity(0.8))
-                    .cornerRadius(10)
-                    .transition(.move(edge: .bottom))
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(viewModel.isMessageError ? .white : .black)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(
+                        Group {
+                            if viewModel.isMessageError {
+                                Capsule().fill(Color.red.opacity(0.9))
+                            } else {
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            gradient: Gradient(colors: [Color(red: 0.9, green: 0.9, blue: 0.95), Color(red: 0.7, green: 0.7, blue: 0.75)]),
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                    .shadow(color: .white.opacity(0.3), radius: 5, x: 0, y: 0)
+                                    .overlay(
+                                        Capsule().stroke(Color.white, lineWidth: 1)
+                                    )
+                            }
+                        }
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                     .padding(.bottom, 20)
             }
         }

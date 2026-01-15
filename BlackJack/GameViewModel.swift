@@ -39,6 +39,7 @@ class GameViewModel: ObservableObject {
     @Published var showAlertMissingFunds: Bool = false
     
     @Published var message = "Haz tu apuesta"
+    @Published var isMessageError: Bool = false
     
     var isGameOver: Bool {
         gameState == .gameOver
@@ -60,7 +61,8 @@ class GameViewModel: ObservableObject {
     func startBettingPhase() {
         gameState = .betting
         currentBet = 0
-        message = "Haz tu apuesta (Min 50 - Max 10000)"
+        message = "Haz tu apuesta (Min 50 - Max 10,000)"
+        isMessageError = false
         hands = []
         dealerCards = []
     }
@@ -99,6 +101,7 @@ class GameViewModel: ObservableObject {
             }
         } else {
              message = "Saldo inválido (Max 100,000)"
+             isMessageError = true
              HapticManager.shared.playError()
         }
     }
@@ -112,6 +115,7 @@ class GameViewModel: ObservableObject {
             // Let's just add it.
         } else {
              message = "El saldo no puede exceder 100,000"
+             isMessageError = true
              HapticManager.shared.playError()
         }
     }
@@ -120,6 +124,7 @@ class GameViewModel: ObservableObject {
     func deal() {
         guard currentBet >= 50 else {
             message = "Apuesta mínima de 50 requerida."
+            isMessageError = true
             return
         }
         
@@ -224,6 +229,7 @@ class GameViewModel: ObservableObject {
             endCurrentHand()
         } else {
             message = "Saldo insuficiente para doblar"
+            isMessageError = true
             HapticManager.shared.playError()
         }
     }
@@ -290,6 +296,7 @@ class GameViewModel: ObservableObject {
             
         } else {
             message = "Saldo insuficiente para dividir"
+            isMessageError = true
             HapticManager.shared.playError()
         }
     }
