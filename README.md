@@ -7,7 +7,7 @@
 ![Swift](https://img.shields.io/badge/Swift-5.0+-orange.svg)
 ![SwiftUI](https://img.shields.io/badge/SwiftUI-2.0+-blue.svg)
 ![Platform](https://img.shields.io/badge/Platform-iOS-lightgrey.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
+![License](https://img.shields.io/badge/License-Apache2.0-red.svg)
 
 ## 📱 Descripción
 
