@@ -7,102 +7,158 @@
 
 import SwiftUI
 
-/// Vista principal del juego.
-/// La lógica y el estado del juego se delegan al `GameViewModel`.
+/// Vista principal del juego de Blackjack.
+///
+/// Esta vista se encarga únicamente de la presentación:
+/// - Muestra las cartas del dealer y del jugador
+/// - Presenta el puntaje actual del jugador
+/// - Expone los controles de interacción (pedir carta, reiniciar)
+///
+/// Toda la lógica y el estado del juego se delegan al `GameViewModel`,
+/// siguiendo el patrón MVVM.
 struct ContentView: View {
-
+    
     // MARK: - ViewModel
-
-    /// ViewModel que controla el estado y la lógica del juego.
+    
+    /// ViewModel que administra la lógica y el estado del juego.
     ///
-    /// `@StateObject` indica que esta vista es la dueña del ciclo de vida
-    /// del ViewModel.
+    /// `@StateObject` indica que esta vista es la propietaria
+    /// del ciclo de vida del ViewModel.
     @StateObject var viewModel = GameViewModel()
-
+    
     // MARK: - View Body
-
+    
     var body: some View {
         ZStack {
-
-            // Fondo principal tipo casino
-            Color.green
-                .edgesIgnoringSafeArea(.all)
-
+            
+            // Background: Felt table effect
+            RadialGradient(
+                gradient: Gradient(colors: [Color("TableGreenLight", bundle: nil), Color("TableGreenDark", bundle: nil)]),
+                center: .center,
+                startRadius: 50,
+                endRadius: 500
+            )
+            .edgesIgnoringSafeArea(.all)
+            
             VStack {
-
-                // MARK: Dealer Section
-
-                /// Sección que muestra las cartas del dealer (la casa)
-                Text("Dealer")
-                    .font(.headline)
-                    .foregroundColor(.white)
-
-                HStack {
-                    ForEach(viewModel.dealerCards) { card in
-                        Text(card.displayTitle)
-                            .padding()
-                            .background(Color.white)
-                            .cornerRadius(10)
-                            .shadow(radius: 3)
+                
+                // MARK: - Dealer Section
+                
+                VStack(spacing: 10) {
+                    Text("DEALER")
+                        .font(.custom("CourierNew-Bold", size: 18))
+                        .foregroundColor(Color.white.opacity(0.7))
+                        .tracking(2)
+                    
+                    HStack(spacing: -30) {
+                        ForEach(viewModel.dealerCards) { card in
+                            CardView(card: card)
+                                .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .opacity))
+                        }
                     }
+                    .frame(height: 120)
                 }
-                .padding()
-
+                .padding(.top, 40)
+                
                 Spacer()
-
-                // MARK: Score Section
-
-                /// Marcador que muestra el puntaje actual del jugador
-                Text("Puntaje: \(viewModel.calculateScore(of: viewModel.playerCards))")
-                    .font(.title)
+                
+                // MARK: - Score Badge
+                
+                Text("\(viewModel.calculateScore(of: viewModel.playerCards))")
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
-                    .bold()
-
+                    .frame(width: 80, height: 80)
+                    .background(Circle().stroke(Color.white.opacity(0.3), lineWidth: 4))
+                    .shadow(radius: 10)
+                
                 Spacer()
-
-                // MARK: Player Section
-
-                /// Sección que muestra las cartas del jugador
-                Text("Tú")
-                    .font(.headline)
-                    .foregroundColor(.white)
-
-                HStack {
-                    ForEach(viewModel.playerCards) { card in
-                        Text(card.displayTitle)
-                            .padding()
-                            .background(Color.white)
-                            .cornerRadius(10)
-                            .shadow(radius: 3)
+                
+                // MARK: - Message Overlay
+                if viewModel.isGameOver {
+                    Text(viewModel.message)
+                        .font(.headline)
+                        .padding()
+                        .background(Color.black.opacity(0.7))
+                        .foregroundColor(.white)
+                        .cornerRadius(20)
+                        .transition(.scale)
+                        .padding()
+                }
+                
+                // MARK: - Player Section
+                
+                VStack(spacing: 10) {
+                    Text("JUGADOR")
+                        .font(.custom("CourierNew-Bold", size: 18))
+                        .foregroundColor(Color.white.opacity(0.7))
+                        .tracking(2)
+                    
+                    HStack(spacing: -30) {
+                        ForEach(viewModel.playerCards) { card in
+                            CardView(card: card)
+                                .transition(.offset(y: 200).combined(with: .opacity))
+                        }
+                    }
+                    .frame(height: 120)
+                }
+                .padding(.bottom, 20)
+                
+                // MARK: - Controls
+                
+                HStack(spacing: 40) {
+                    
+                    // Hit Button
+                    Button(action: {
+                        withAnimation {
+                            viewModel.playerHit()
+                        }
+                    }) {
+                        Text("PEDIR")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 30)
+                            .background(
+                                LinearGradient(gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.7)]), startPoint: .top, endPoint: .bottom)
+                            )
+                            .foregroundColor(.white)
+                            .cornerRadius(25)
+                            .shadow(color: Color.blue.opacity(0.5), radius: 5, x: 0, y: 5)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 25)
+                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                            )
+                    }
+                    .disabled(viewModel.isGameOver)
+                    .opacity(viewModel.isGameOver ? 0.6 : 1.0)
+                    
+                    // Restart Button
+                    Button(action: {
+                        withAnimation {
+                            viewModel.startGame()
+                        }
+                    }) {
+                        Text("REINICIAR")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 30)
+                            .background(
+                                LinearGradient(gradient: Gradient(colors: [Color.red, Color.red.opacity(0.7)]), startPoint: .top, endPoint: .bottom)
+                            )
+                            .foregroundColor(.white)
+                            .cornerRadius(25)
+                            .shadow(color: Color.red.opacity(0.5), radius: 5, x: 0, y: 5)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 25)
+                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                            )
                     }
                 }
-                .padding()
-
-                // MARK: Controls
-
-                /// Controles principales del juego
-                HStack(spacing: 50) {
-
-                    Button("Pedir") {
-                        //TODO:  Acción para pedir carta (definida en el ViewModel)
-                    }
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-
-                    Button("Reiniciar") {
-                        viewModel.startGame()
-                    }
-                    .padding()
-                    .background(Color.red)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                }
-                .padding(.bottom, 30)
+                .padding(.bottom, 40)
             }
         }
-        // Inicia automáticamente una nueva partida al mostrar la vista
+        // Inicia automáticamente una nueva partida al aparecer la vista
         .onAppear {
             viewModel.startGame()
         }
