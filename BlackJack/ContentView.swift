@@ -6,10 +6,18 @@
 //
 
 import SwiftUI
+internal import UniformTypeIdentifiers
 
 struct ContentView: View {
     
     @StateObject var viewModel = GameViewModel()
+    
+    // Balance Edit State
+    @State private var showBalanceAlert = false
+    @State private var tempBalanceInput = ""
+    
+    // Drag & Drop State
+    @State private var dropZoneFrame: CGRect = .zero
     
     var body: some View {
         ZStack {
@@ -38,6 +46,22 @@ struct ContentView: View {
                     .background(Capsule().fill(Color.black.opacity(0.8)))
                     .overlay(Capsule().stroke(Color.yellow.opacity(0.5), lineWidth: 1))
                     .shadow(radius: 5)
+                    .onTapGesture {
+                        tempBalanceInput = String(viewModel.playerBalance)
+                        showBalanceAlert = true
+                    }
+                    .alert("Modificar Saldo", isPresented: $showBalanceAlert) {
+                        TextField("Nuevo Saldo", text: $tempBalanceInput)
+                            .keyboardType(.numberPad)
+                        Button("Cancelar", role: .cancel) { }
+                        Button("Guardar") {
+                            if let newBalance = Int(tempBalanceInput) {
+                                viewModel.updateBalance(newBalance: newBalance)
+                            }
+                        }
+                    } message: {
+                        Text("Ingresa el nuevo saldo (Máx 100,000)")
+                    }
                     
                     Spacer()
                 }
@@ -59,74 +83,106 @@ struct ContentView: View {
             Spacer()
             
             Text("BLACKJACK")
-                .font(.system(size: 50, weight: .black, design: .rounded))
+                .font(.system(size: 40, weight: .black, design: .rounded))
                 .foregroundColor(.white)
                 .shadow(color: .white.opacity(0.5), radius: 10, x: 0, y: 0)
-                .padding(.bottom, 5)
+                .padding(.bottom, 2)
             
-            Text("Apuesta Actual")
-                .font(.subheadline)
+            Text("ARRASTRA FICHAS PARA APOSTAR")
+                .font(.caption)
                 .foregroundColor(.gray)
-                .textCase(.uppercase)
-                .kerning(2)
+                .kerning(1)
+                .padding(.bottom, 20)
             
-            Text("$\(viewModel.currentBet)")
-                .font(.system(size: 60, weight: .thin, design: .default))
-                .foregroundColor(.white)
-                .padding(.bottom, 30)
-            
-            Spacer()
-            
-            VStack(spacing: 25) {
-                Text("SELECCIONA TUS FICHAS")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white.opacity(0.6))
-                    .kerning(1)
+            // DROP ZONE
+            ZStack {
+                Circle()
+                    .strokeBorder(Color.white.opacity(0.3), lineWidth: 2)
+                    .background(Circle().fill(Color.black.opacity(0.5)))
+                    .frame(width: 180, height: 180)
                 
-                HStack(spacing: 20) {
-                    chipButton(amount: 50, color: .red)
-                    chipButton(amount: 100, color: .blue)
-                    chipButton(amount: 500, color: .green)
-                    chipButton(amount: 1000, color: .orange)
-                }
-                
-                HStack(spacing: 20) {
-                    Button(action: { viewModel.clearBet() }) {
-                        Text("BORRAR")
-                            .font(.headline)
+                if viewModel.currentBet > 0 {
+                    VStack {
+                        Text("APUESTA")
+                            .font(.caption)
                             .fontWeight(.bold)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.white.opacity(0.1))
+                            .foregroundColor(.yellow)
+                        
+                        Text("$\(viewModel.currentBet)")
+                            .font(.system(size: 40, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
-                            .cornerRadius(15)
                     }
-                    
-                    Button(action: {
-                        withAnimation { viewModel.deal() }
-                    }) {
-                        Text("REPARTIR")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                LinearGradient(gradient: Gradient(colors: [.yellow, .orange]), startPoint: .top, endPoint: .bottom)
-                            )
-                            .foregroundColor(.black)
-                            .cornerRadius(15)
-                            .shadow(color: .orange.opacity(0.5), radius: 10, x: 0, y: 5)
-                    }
-                    .disabled(viewModel.currentBet < 50)
-                    .opacity(viewModel.currentBet < 50 ? 0.5 : 1.0)
+                } else {
+                    Text("Coloca Aquí")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.4))
                 }
-                .padding(.horizontal, 30)
-                .padding(.top, 10)
             }
-            .padding(.bottom, 50)
+            .background(
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear {
+                            dropZoneFrame = geo.frame(in: .global)
+                        }
+                        .onChange(of: geo.frame(in: .global)) { newFrame in
+                            dropZoneFrame = newFrame
+                        }
+                }
+            )
+            .padding(.bottom, 30)
             
-            // Error overlay
+            // DRAGGABLE CHIPS
+            HStack(spacing: 15) {
+                DraggableChip(amount: 50, color: .red, dropZoneFrame: dropZoneFrame) { amount in
+                    placeBet(amount: amount)
+                }
+                DraggableChip(amount: 100, color: .blue, dropZoneFrame: dropZoneFrame) { amount in
+                    placeBet(amount: amount)
+                }
+                DraggableChip(amount: 500, color: .green, dropZoneFrame: dropZoneFrame) { amount in
+                    placeBet(amount: amount)
+                }
+                DraggableChip(amount: 1000, color: .orange, dropZoneFrame: dropZoneFrame) { amount in
+                    placeBet(amount: amount)
+                }
+            }
+            .padding(.bottom, 30)
+            
+            // ACTIONS
+            HStack(spacing: 20) {
+                Button(action: { viewModel.clearBet() }) {
+                    Text("BORRAR")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(15)
+                }
+                
+                Button(action: {
+                    withAnimation { viewModel.deal() }
+                }) {
+                    Text("REPARTIR")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            LinearGradient(gradient: Gradient(colors: [.yellow, .orange]), startPoint: .top, endPoint: .bottom)
+                        )
+                        .foregroundColor(.black)
+                        .cornerRadius(15)
+                        .shadow(color: .orange.opacity(0.5), radius: 10, x: 0, y: 5)
+                }
+                .disabled(viewModel.currentBet < 50)
+                .opacity(viewModel.currentBet < 50 ? 0.5 : 1.0)
+            }
+            .padding(.horizontal, 30)
+            .padding(.bottom, 40)
+            
+            // Error overlay within view
             if !viewModel.message.isEmpty && viewModel.gameState == .betting {
                 Text(viewModel.message)
                     .foregroundColor(.red)
@@ -134,40 +190,15 @@ struct ContentView: View {
                     .background(Color.black.opacity(0.8))
                     .cornerRadius(10)
                     .transition(.move(edge: .bottom))
+                    .padding(.bottom, 20)
             }
         }
     }
     
-    func chipButton(amount: Int, color: Color) -> some View {
-        Button(action: {
-            let impactMed = UIImpactFeedbackGenerator(style: .medium)
-            impactMed.impactOccurred()
-            viewModel.placeBet(amount: amount)
-        }) {
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(gradient: Gradient(colors: [color.opacity(0.8), color]), center: .center, startRadius: 0, endRadius: 35)
-                    )
-                    .frame(width: 70, height: 70)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(Color.white.opacity(0.3), lineWidth: 4)
-                    )
-                    .overlay(
-                         Circle()
-                            .stroke(Color.black.opacity(0.2), lineWidth: 1)
-                     )
-                    .shadow(color: color.opacity(0.4), radius: 5, x: 0, y: 3)
-                
-                Text("\(amount)")
-                    .font(.callout)
-                    .fontDesign(.rounded)
-                    .fontWeight(.black)
-                    .foregroundColor(.white)
-                    .shadow(color: .black.opacity(0.3), radius: 1, x: 1, y: 1)
-            }
-        }
+    func placeBet(amount: Int) {
+        let impact = UIImpactFeedbackGenerator(style: .heavy)
+        impact.impactOccurred()
+        viewModel.placeBet(amount: amount)
     }
     
     // MARK: - Gameplay View
@@ -181,6 +212,8 @@ struct ContentView: View {
                     .fontWeight(.bold)
                     .foregroundColor(.white.opacity(0.5))
                     .kerning(1)
+                    .padding(.bottom, 20) // Give more space so cards don't cover it
+                    .zIndex(1) // Ensure it stays on top if needed, though layout should handle it
                 
                 ZStack {
                     HStack(spacing: -40) {
@@ -430,6 +463,66 @@ struct PlayerHandView: View {
             RoundedRectangle(cornerRadius: 15)
                 .stroke(isActive ? Color.yellow.opacity(0.7) : Color.clear, lineWidth: 2)
         )
+    }
+}
+
+struct DraggableChip: View {
+    let amount: Int
+    let color: Color
+    let dropZoneFrame: CGRect
+    let onPlaceBet: (Int) -> Void
+    
+    @State private var offset: CGSize = .zero
+    @State private var isDragging = false
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(gradient: Gradient(colors: [color.opacity(0.8), color]), center: .center, startRadius: 0, endRadius: 35)
+                )
+                .frame(width: 70, height: 70)
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.white.opacity(0.3), lineWidth: 4)
+                )
+                .overlay(
+                     Circle()
+                        .stroke(Color.black.opacity(0.2), lineWidth: 1)
+                 )
+                .shadow(color: color.opacity(0.4), radius: 5, x: 0, y: 3)
+            
+            Text("\(amount)")
+                .font(.callout)
+                .fontDesign(.rounded)
+                .fontWeight(.black)
+                .foregroundColor(.white)
+                .shadow(color: .black.opacity(0.3), radius: 1, x: 1, y: 1)
+        }
+        .scaleEffect(isDragging ? 1.2 : 1.0)
+        .offset(offset)
+        .gesture(
+            DragGesture(coordinateSpace: .global)
+                .onChanged { value in
+                    isDragging = true
+                    offset = value.translation
+                }
+                .onEnded { value in
+                    isDragging = false
+                    
+                    // Check if dropped in drop zone
+                    // We check if the drag location is within the target frame.
+                    if dropZoneFrame.contains(value.location) {
+                        onPlaceBet(amount)
+                    }
+                    
+                    // Always animate back
+                    withAnimation(.spring()) {
+                        offset = .zero
+                    }
+                }
+        )
+        .zIndex(isDragging ? 100 : 0) // Bring to front when dragging
     }
 }
 

@@ -80,6 +80,20 @@ class GameViewModel: ObservableObject {
         playerBalance += currentBet
         currentBet = 0
     }
+    
+    /// Actualiza el saldo del jugador (Max 100,000)
+    func updateBalance(newBalance: Int) {
+        if newBalance >= 0 && newBalance <= 100000 {
+            playerBalance = newBalance
+            // Si la apuesta actual es mayor al nuevo saldo (caso raro), resetear apuesta
+            if currentBet > playerBalance {
+                clearBet()
+            }
+        } else {
+             message = "Saldo inválido (Max 100,000)"
+             playHaptic(type: .error)
+        }
+    }
 
     /// Inicia la ronda repartiendo cartas
     func deal() {
